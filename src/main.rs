@@ -1,10 +1,10 @@
-use cli::cli;
-use scrapper::scrapper;
+use crate::cli::cli;
+use crate::scraper::scraper;
 
 mod cli;
-mod scrapper;
+mod scraper;
 
 fn main() {
     cli();
-    scrapper().unwrap();
+    scraper().unwrap();
 }
