@@ -1,0 +1,8 @@
+[[providers]]
+name = 'Socks24'
+[[sources]]
+  selector = '.alt2 > span'
+  [[sources]]
+  url = 'http://www.socks24.org'
+  selector = 'a'
+  regex = '^http://www\.socks24\.org/\d\d\d\d/\d\d/\d\d\-\d\d\-\d\d\-(?:vip\-socks\-5_\d\d|us\-socks(?:_\d\d)?)\.html$'
