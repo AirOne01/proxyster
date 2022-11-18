@@ -1,6 +1,5 @@
-use std::array::IntoIter;
-
 use regex::Regex;
+use scraper::element_ref::Text;
 
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -25,16 +24,24 @@ pub async fn scraper() -> Result<()> {
                     document.select(&selector)
                         .map(|x| x.value().attr("href").unwrap_or(""))
                         .filter(|x| reg.is_match(x))
-                        .into_iter()
                         .collect()
                 } else {
                     document.select(&selector)
                         .map(|x| x.value().attr("href").unwrap_or(""))
                         .collect()
                 };
-                selected
-                    .iter()
-                    .for_each(|e| println!("{}", e));
+                for link in selected.iter() {
+                    let resp = reqwest::get(&link[..])
+                        .await?
+                        .text()
+                        .await?;
+                    let document = scraper::Html::parse_document(&resp);
+                    let selector = scraper::Selector::parse(&provider.link_page_selector[..]).unwrap();
+                    let selected: Vec<Text> = document.select(&selector)
+                        .map(|x| x.text())
+                        .collect();
+                    selected[0].clone().for_each(|y| println!("{}", y));
+                }
             }
         } else {
             panic!("No indirect links");
@@ -52,6 +59,7 @@ struct Provider {
     direct_links: Option<Vec<String>>,
     direct_links_selector: Option<String>,
     direct_links_regex: Option<Vec<String>>,
+    link_page_selector: String,
 }
 
 impl Default for Provider {
@@ -64,19 +72,21 @@ impl Default for Provider {
             direct_links: Default::default(),
             direct_links_selector: Default::default(),
             direct_links_regex: Default::default(),
+            link_page_selector: Default::default(),
         }
     }
 }
 
 fn init() -> Vec<Provider> {
     Vec::from([Provider {
-        name: String::new(),
+        name: String::from("socks24"),
         indirect_links: Some(Vec::from(["http://www.socks24.org".to_string()])),
         indirect_links_selector: Some("a".to_string()),
         // indirect_links_regex: None,
         indirect_links_regex: Some(String::from(r"^http://www\.socks24\.org/\d\d\d\d/\d\d/\d\d\-\d\d\-\d\d\-(?:vip\-socks\-5_\d\d|us\-socks(?:_\d\d)?)\.html$")),
         direct_links: None,
         direct_links_selector: None,
-        direct_links_regex: None
+        direct_links_regex: None,
+        link_page_selector: String::from(".alt2 > span"),
     }])
 }
