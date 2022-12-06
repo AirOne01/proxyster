@@ -1,8 +1,11 @@
 [[providers]]
 name = 'Socks24'
-[[sources]]
-  selector = '.alt2 > span'
-  [[sources]]
-  url = 'http://www.socks24.org'
-  selector = 'a'
-  regex = '^http://www\.socks24\.org/\d\d\d\d/\d\d/\d\d\-\d\d\-\d\d\-(?:vip\-socks\-5_\d\d|us\-socks(?:_\d\d)?)\.html$'
+
+[[providers.sources]]
+selector = 'a'
+# regex that works for both http://www.socks24.org/2020/05/28-05-20-us-socks.html and http://www.socks24.org/2020/05/26-05-20-vip-socks-5_29.html
+regex = 'http://www\.socks24\.org/\d\d(?:\d{2}/){2}(?:\d{2}\-){3}\w{2,3}\-socks(?:\-\d\w\d{2})?\.html$'
+url = 'http://www.socks24.org'
+
+[[providers.sources]]
+selector = 'pre.alt2 > span > span:last-child'
