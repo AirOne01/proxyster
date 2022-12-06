@@ -1,7 +1,8 @@
 use regex::Regex;
 use scraper::{Html, Selector};
 
-use crate::config::{read_config, ProviderSource};
+use proxyster_lib::util::read_config;
+use proxyster_lib::provider_source::ProviderSource;
 
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
