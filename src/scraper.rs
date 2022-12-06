@@ -1,82 +1,91 @@
-use std::array::IntoIter;
-
 use regex::Regex;
+use scraper::{Html, Selector};
+
+use crate::config::{read_config, ProviderSource};
 
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::main]
 pub async fn scraper() -> Result<()> {
-    let providers = init();
+    let providers = Vec::from(read_config().providers);
+    let client = reqwest::Client::new();
 
+    // for each provider execute get_proxies
     for provider in providers {
-        if let (Some(i_links), Some(i_selector)) = (provider.indirect_links, provider.indirect_links_selector) {
-            for i_link in i_links {
-                let resp = reqwest::get(i_link)
-                    .await?
-                    .text()
-                    .await?;
-                let document = scraper::Html::parse_document(&resp);
-                let selector = scraper::Selector::parse(&i_selector[..])
-                    .unwrap();
-                let selected: Vec<&str> = if let Some(i_regex) = provider.indirect_links_regex.clone() {
-                    let reg = Regex::new(&i_regex[..])
-                        .unwrap();
-                    document.select(&selector)
-                        .map(|x| x.value().attr("href").unwrap_or(""))
-                        .filter(|x| reg.is_match(x))
-                        .into_iter()
-                        .collect()
-                } else {
-                    document.select(&selector)
-                        .map(|x| x.value().attr("href").unwrap_or(""))
-                        .collect()
-                };
-                selected
-                    .iter()
-                    .for_each(|e| println!("{}", e));
-            }
-        } else {
-            panic!("No indirect links");
-        }
+        // fetch sources from provider.sources (TOML)
+        let sources = provider.sources;
+        // print sources urls
+        let proxies = get_proxies(&client, sources).await?;
+        // print a vector of proxies
+        println!("{:?}", proxies);
     }
 
     Ok(())
 }
 
-struct Provider {
-    name: String,
-    indirect_links: Option<Vec<String>>,
-    indirect_links_selector: Option<String>,
-    indirect_links_regex: Option<String>,
-    direct_links: Option<Vec<String>>,
-    direct_links_selector: Option<String>,
-    direct_links_regex: Option<Vec<String>>,
+// from an url and a selector, returns the html text of the selector
+async fn get_html_text(client: &reqwest::Client, url: &str, selector: &str) -> Result<String> {
+    let res = client.get(url).send().await?;
+    let body = res.text().await?;
+    let fragment = Html::parse_document(&body);
+    let selector = Selector::parse(selector).unwrap();
+    let mut text = String::new();
+    for element in fragment.select(&selector) {
+        text.push_str(element.text().collect::<String>().as_str());
+    }
+    Ok(text)
 }
 
-impl Default for Provider {
-    fn default() -> Self {
-        Self {
-            name: Default::default(),
-            indirect_links: Default::default(),
-            indirect_links_selector: Default::default(),
-            indirect_links_regex: Default::default(),
-            direct_links: Default::default(),
-            direct_links_selector: Default::default(),
-            direct_links_regex: Default::default(),
+// from an url and a selector, returns the href of first element of the selector
+async fn get_html_href(client: &reqwest::Client, url: &str, selector: &str, regex: Option<String>) -> Result<String> {
+    let res = client.get(url).send().await?;
+    let body = res.text().await?;
+    let fragment = Html::parse_document(&body);
+    let selector = Selector::parse(selector).expect("Could not parse selector");
+    let mut scanned_elements_with_href = false;
+    for element in fragment.select(&selector) {
+        if let Some(element_href) = element.value().attr("href") {
+            println!("{}", element_href);
+            if let Some(regex) = regex.clone() {
+                if Regex::new(&regex[..]).unwrap().is_match(element_href) {
+                    return Ok(element_href.to_string());
+                }
+                scanned_elements_with_href = true;
+            } else {
+                return Ok(element_href.to_string());
+            }
         }
+    }
+    if scanned_elements_with_href {
+        Err("Could not find any element with href matching regex".into())
+    } else {
+        Err("Could not find any href".into())
     }
 }
 
-fn init() -> Vec<Provider> {
-    Vec::from([Provider {
-        name: String::new(),
-        indirect_links: Some(Vec::from(["http://www.socks24.org".to_string()])),
-        indirect_links_selector: Some("a".to_string()),
-        // indirect_links_regex: None,
-        indirect_links_regex: Some(String::from(r"^http://www\.socks24\.org/\d\d\d\d/\d\d/\d\d\-\d\d\-\d\d\-(?:vip\-socks\-5_\d\d|us\-socks(?:_\d\d)?)\.html$")),
-        direct_links: None,
-        direct_links_selector: None,
-        direct_links_regex: None
-    }])
+// get the url and selector from the provider, and fetch a new url from those.
+// do this recursively until we get a provider with no sources, and then return the selector content
+async fn get_proxies(client: &reqwest::Client, sources: Vec<ProviderSource>) -> Result<Vec<String>> {
+    let mut proxies = Vec::new();
+
+    let mut url: String = sources[0].url.as_ref().unwrap().to_owned(); // only for the first one
+    let mut selector = sources[0].selector.clone();
+    let mut regex = sources[0].regex.clone();
+
+    for i in 0..sources.len() {
+        println!("{}/{}, {}", i, sources.len(), url);
+
+        if i != sources.len() - 1 {
+            // if this is not last element, get the selector's href
+            url = get_html_href(client, url.as_str(), selector.as_str(), regex.clone()).await?;
+            selector = sources[i+1].selector.clone();
+            regex = sources[i+1].regex.clone();
+        } else {
+            println!("last element {}, {}", url, selector);
+            proxies.push(get_html_text(client, url.as_str(), selector.as_str()).await?);
+        }
+    }
+
+    Ok(proxies)
 }
