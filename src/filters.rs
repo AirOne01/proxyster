@@ -18,7 +18,9 @@ pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
             .split(|c| c == '\r' || c == '\n')
             .collect::<Vec<&str>>();
         for proxy in to_push {
-            splitted_proxies.push(proxy.to_string())
+            if !proxy.is_empty() || proxy != "" { // failsafe
+                splitted_proxies.push(proxy.to_string())
+            }
         }
     }
 
@@ -33,7 +35,9 @@ pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
         } else {
             if let Some(new_value) = filtered.new_value {
                 filtered_proxies.push(new_value.clone());
-                println!("Accepted: {}", new_value);
+                if debug {
+                    println!("Morphed: {}", new_value)
+                };
             } else if debug {
                 println!("Rejected: {}", proxy);
             }
@@ -42,18 +46,51 @@ pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
     return filtered_proxies;
 }
 
+// possible actions to take on a proxy
+enum MorphAction {
+    IpPortSocks45,
+}
+
+fn morph(proxy: String, action: MorphAction) -> String {
+    match action {
+        MorphAction::IpPortSocks45 => {
+            let ip_port_socks = proxy.split_whitespace().collect::<Vec<&str>>();
+            return ip_port_socks[0]
+                .to_string()
+                .split("@")
+                .collect::<Vec<&str>>()[0]
+                .to_string();
+        }
+    }
+}
+
 // Filters a single proxy string
 fn filter_proxy(proxy: String) -> FilterAction {
+    let relevant_proxy = proxy.split_whitespace().collect::<Vec<&str>>()[0].to_string();
+
     fn test(reg: &str, proxy: String) -> bool {
         Regex::new(reg).unwrap().is_match(proxy.as_str())
     }
 
-    if test(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}$", proxy) {
+    if test(
+        r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}$",
+        relevant_proxy.clone(),
+    ) {
         /* simplest proxy format
-        xxx.xxx.xxx:xxxx */
+        xxx.xxx.xxx:xxxxx */
         return FilterAction {
             accepted: true,
             new_value: None,
+        };
+    } else if test(
+        r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}@SOCKS[4,5]$",
+        relevant_proxy.clone(),
+    ) {
+        /* socks proxy format
+        xxx.xxx.xxx:xxxxx@SOCKSx */
+        return FilterAction {
+            accepted: false,
+            new_value: Some(morph(relevant_proxy.clone(), MorphAction::IpPortSocks45)),
         };
     }
     FilterAction {
