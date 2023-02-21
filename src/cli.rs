@@ -7,6 +7,7 @@ fn clap_command() -> Command {
         .version(env!("CARGO_PKG_VERSION"))
         .subcommand_required(true)
         .arg_required_else_help(true)
+        .disable_help_subcommand(true)
         .subcommand(
             Command::new("find")
                 .visible_alias("f")
