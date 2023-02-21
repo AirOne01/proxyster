@@ -5,6 +5,7 @@ use std::io::{Write, stdout};
 
 use proxyster_lib::provider_source::ProviderSource;
 use proxyster_lib::util::read_config;
+use crate::filters::filter_all;
 
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -37,8 +38,9 @@ pub async fn scraper(dump_to_stdout: bool, debug: bool) -> Result<()> {
             let sources = provider.sources;
             // get proxies from sources
             let proxies = get_proxies(&client, sources, debug).await?;
+            let filtered_proxies = filter_all(proxies, debug);
             // print each proxy
-            for proxy in proxies.iter() {
+            for proxy in filtered_proxies.iter() {
                 println!("{}", proxy);
             }
         }
