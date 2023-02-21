@@ -37,8 +37,10 @@ pub async fn scraper(dump_to_stdout: bool, debug: bool) -> Result<()> {
             let sources = provider.sources;
             // get proxies from sources
             let proxies = get_proxies(&client, sources, debug).await?;
-            // print a vector of proxies
-            println!("{:?}", proxies);
+            // print each proxy
+            for proxy in proxies.iter() {
+                println!("{}", proxy);
+            }
         }
     }
 
