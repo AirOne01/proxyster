@@ -35,9 +35,11 @@ fn clap_command() -> Command {
         .arg(
             Arg::new("debug")
                 .long("debug")
+                .short('d')
                 .help("Enable debug mode")
                 .num_args(0)
                 .action(ArgAction::SetTrue)
+                .global(true)
         )
 }
 

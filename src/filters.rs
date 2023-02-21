@@ -7,7 +7,7 @@ struct FilterAction {
 }
 
 // Filters given list of raw proxies as Vec.
-pub fn filter_all(proxies: Vec<String>) -> Vec<String> {
+pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
     let mut filtered_proxies: Vec<String> = Vec::new();
     let mut splitted_proxies: Vec<String> = Vec::new();
 
@@ -26,10 +26,16 @@ pub fn filter_all(proxies: Vec<String>) -> Vec<String> {
         let filtered = filter_proxy(proxy.clone());
 
         if filtered.accepted {
-            filtered_proxies.push(proxy.clone())
+            filtered_proxies.push(proxy.clone());
+            if debug {
+                println!("Accepted: {}", proxy);
+            }
         } else {
             if let Some(new_value) = filtered.new_value {
-                filtered_proxies.push(new_value)
+                filtered_proxies.push(new_value.clone());
+                println!("Accepted: {}", new_value);
+            } else if debug {
+                println!("Rejected: {}", proxy);
             }
         }
     }
@@ -42,7 +48,7 @@ fn filter_proxy(proxy: String) -> FilterAction {
         Regex::new(reg).unwrap().is_match(proxy.as_str())
     }
 
-    if test(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,4}$", proxy) {
+    if test(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}$", proxy) {
         /* simplest proxy format
         xxx.xxx.xxx:xxxx */
         return FilterAction {
