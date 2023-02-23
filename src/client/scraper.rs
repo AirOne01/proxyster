@@ -1,8 +1,6 @@
 use crossterm::{cursor, ExecutableCommand, QueueableCommand};
 use std::io::{stdout, Write};
 
-use proxyster_lib::provider_source::ProviderSource;
-
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
