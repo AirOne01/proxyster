@@ -1,7 +1,9 @@
 use regex::Regex;
 use scraper::{Html, Selector};
 
-use crate::{filters::filter_all, provider_source::ProviderSource, util::read_config};
+use crate::filters::filter_all;
+use lib::provider::ProviderSource;
+use lib::config::read_config;
 
 // Type alias
 type ExpandedResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -83,7 +85,11 @@ async fn get_html_href(
 }
 
 // from an url and a selector, returns the html text of the selector
-async fn get_html_text(client: &reqwest::Client, url: &str, selector: &str) -> ExpandedResult<String> {
+async fn get_html_text(
+    client: &reqwest::Client,
+    url: &str,
+    selector: &str,
+) -> ExpandedResult<String> {
     let res = client.get(url).send().await?;
     let body = res.text().await?;
     let fragment = Html::parse_document(&body);

@@ -1,7 +1,17 @@
-use dirs::config_dir;
 use std::fs::read_to_string;
 
-use crate::config::Config;
+use dirs::config_dir;
+use serde_derive::Deserialize;
+
+use crate::provider::Provider;
+
+/**
+ The config file
+*/
+#[derive(Deserialize)]
+pub struct Config {
+    pub providers: Vec<Provider>,
+}
 
 /**
  Reads the config file and returns the providers
@@ -41,4 +51,3 @@ pub fn read_config() -> Config {
     );
     toml::from_str(&read_to_string(providers_file).unwrap()[..]).unwrap()
 }
-

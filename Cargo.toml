@@ -11,6 +11,10 @@ path = "src/client/main.rs"
 name = "daemon"
 path = "src/daemon/main.rs"
 
+[lib]
+name = "lib"
+path = "src/lib/lib.rs"
+
 [dependencies]
 clap = "4.1.6"
 crossterm = "0.26.0"
