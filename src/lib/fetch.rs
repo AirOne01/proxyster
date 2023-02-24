@@ -1,9 +1,7 @@
 use regex::Regex;
 use scraper::{Html, Selector};
 
-use crate::filters::filter_all;
-use lib::provider::ProviderSource;
-use lib::config::read_config;
+use crate::{filters::filter_all, config::read_config, provider::ProviderSource};
 
 // Type alias
 type ExpandedResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
