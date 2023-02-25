@@ -11,6 +11,10 @@ use std::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 
+use crate::cli::cli;
+
+mod cli;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
@@ -59,6 +63,8 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _matches = cli();
+
     let state = PeerMap::new(Mutex::new(HashMap::new()));
 
     let listener = TcpListener::bind("127.0.0.1:54345").await?;
