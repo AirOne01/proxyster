@@ -3,6 +3,8 @@
 
 use std::fmt;
 
+use tokio_tungstenite::tungstenite::Message;
+
 pub struct ProtocolMessage {
     header: ProtocolMessageHeader,
     body: String,
@@ -38,19 +40,19 @@ pub enum ProtocolMessageHeader {
     Proxy, // send a proxy to the client
 }
 
-// TODO: eventually this will be replacede by a properly optimized protocol
-pub fn sendRequest(out: ws::Sender, prot_message: ProtocolMessage) {
-    let msg = ws::Message::text(format!("{}", prot_message));
-    out.send(msg).unwrap();
-}
+// TODO: eventually this will be replaced by a properly optimized protocol
+// pub fn sendRequest(out: ws::Sender, prot_message: ProtocolMessage) {
+//     let msg = ws::Message::text(format!("{}", prot_message));
+//     out.send(msg).unwrap();
+// }
 
-pub fn readMessage(msg: String) -> Result<ProtocolMessage, &'static str> {
-    if msg == format!("{} ", ProtocolMessageHeader::RequesProxies) {
+pub fn read_message(msg: Message) -> Result<ProtocolMessage, &'static str> {
+    if msg.to_string() == format!("{} ", ProtocolMessageHeader::RequesProxies) {
         println!("Received correct request for proxies");
         return Ok(ProtocolMessage {
             header: ProtocolMessageHeader::RequesProxies,
             body: String::new(),
         });
     }
-    Err("Unable to decode message (Not implemented yet)")
+    Err("Unable to decode message (Not yet implemented)")
 }
