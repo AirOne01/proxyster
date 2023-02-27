@@ -9,7 +9,7 @@ fn main() {
 
     match matches.subcommand() {
         Some(("find", sub)) => {
-            scraper(sub.get_flag("stdout"), matches.get_flag("debug"));
+            scraper().unwrap();
         }
         _ => {}
     }

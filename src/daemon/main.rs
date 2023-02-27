@@ -19,7 +19,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
-async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
+async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) -> Result<()> {
     let ws_stream = accept_async(raw_stream)
         .await
         .expect("Unable to accept TCP stream");
@@ -30,7 +30,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
     );
 
     let (tx, rx) = unbounded::<Message>();
-    peer_map.lock().unwrap().insert(addr, tx);
+    peer_map.lock().expect("should be able to block the thread and aquire the mutex").insert(addr, tx);
 
     let (outgoing, incoming) = ws_stream.split();
 
@@ -59,6 +59,8 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
     println!("{} disconnected", addr);
     peer_map.lock().unwrap().remove(&addr);
+
+    Ok(())
 }
 
 #[tokio::main]

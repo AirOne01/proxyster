@@ -1,31 +1,35 @@
-use crossterm::{cursor, ExecutableCommand, QueueableCommand};
-use std::io::{stdout, Write};
+use futures::future::select;
+use futures::{channel::mpsc::unbounded, pin_mut};
+use futures::{StreamExt, SinkExt};
+use tokio::io::AsyncWriteExt;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
+use url::Url;
 
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::main]
-pub async fn scraper(dump_to_stdout: bool, debug: bool) -> Result<()> {
-    // // for each provider execute get_proxies
-    // let mut stdout = stdout();
+pub async fn scraper() -> Result<()> {
+    let url = Url::parse("ws://127.0.0.1:54345")?;
 
-    // stdout.execute(cursor::Hide).unwrap();
-    // for provider in providers {
-    //     stdout.queue(cursor::SavePosition).unwrap();
-    //     stdout
-    //         .write_all(format!("🔎 {}", provider.name).as_bytes())
-    //         .unwrap();
-    //     // fetch sources from provider.sources (TOML)
-    //     let sources = provider.sources;
-    //     // get proxies from sources
-    //     let _proxies = get_proxies(&client, sources, debug).await?;
-    //     stdout.queue(cursor::RestorePosition).unwrap();
-    //     stdout.flush().unwrap();
-    //     stdout
-    //         .write_all(format!("✔️ {}", provider.name).as_bytes())
-    //         .unwrap();
-    // }
-    // stdout.execute(cursor::Show).unwrap();
+    let (_stdin_tx, stdin_rx) = unbounded::<Message>();
+
+    let (mut ws_stream, _) = connect_async(url).await?;
+    println!("Handshake completed");
+
+    ws_stream.send(Message::Text("REQUEST_PROXIES ".to_string())).await?;
+
+    let (write, read) = ws_stream.split();
+
+    let stdin_to_ws = stdin_rx.map(Ok).forward(write);
+    let ws_to_stdout = read.for_each(|msg| async {
+        if let Ok(data) = msg {
+            tokio::io::stdout().write_all(&(data.into_data())).await.unwrap();
+        };
+    });
+
+    pin_mut!(stdin_to_ws, ws_to_stdout);
+    select(stdin_to_ws, ws_to_stdout).await;
 
     Ok(())
 }
