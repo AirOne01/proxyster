@@ -8,10 +8,10 @@ type ExpandedResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send
 
 // sync proxy fetching
 #[tokio::main]
-pub async fn fetch() -> ExpandedResult<()> {
+pub async fn fetch() -> ExpandedResult<Vec<String>> {
     let providers = Vec::from(read_config().providers);
     let client = reqwest::Client::new();
-    let mut finalProxyList: Vec<String> = Vec::new();
+    let mut final_proxy_list: Vec<String> = Vec::new();
 
     for provider in providers {
         // fetch sources from provider.sources (TOML)
@@ -19,10 +19,10 @@ pub async fn fetch() -> ExpandedResult<()> {
         // get proxies from sources
         let proxies = get_proxies(&client, sources).await?;
         let mut filtered_proxies = filter_all(proxies);
-        finalProxyList.append(&mut filtered_proxies);
+        final_proxy_list.append(&mut filtered_proxies);
     }
 
-    Ok(())
+    Ok(final_proxy_list.clone())
 }
 
 // get the url and selector from the provider, and fetch a new url from those.

@@ -1,43 +1,52 @@
 // The "protocol" used to request/provide proxies from/to the proxy server.
 // TODO: obviously add all options to requests [1]
 
-use std::fmt;
-
 use tokio_tungstenite::tungstenite::Message;
 
-pub struct ProtocolMessage {
-    header: ProtocolMessageHeader,
-    body: String,
-}
-
-// ProtocolMessage to String
-impl fmt::Display for ProtocolMessage {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}", self.header, self.body)
-    }
-}
+type ProtocolMessage = (ProtocolMessageHeader, String);
 
 // ProtocolMessageHeader to String
-impl fmt::Display for ProtocolMessageHeader {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
+impl ProtocolMessageHeader {
+    fn as_str(&self) -> &'static str {
+        match self {
             ProtocolMessageHeader::RequesProxies => "REQUEST_PROXIES",
             ProtocolMessageHeader::Goodbye => "GOODBYE",
             ProtocolMessageHeader::Processing => "PROCESSING",
             ProtocolMessageHeader::Done => "DONE",
             ProtocolMessageHeader::Proxy => "PROXY",
-        })
+        }
+    }
+}
+
+// Message to ProtocolMessageHeader
+impl From<&str> for ProtocolMessageHeader {
+    fn from(s: &str) -> Self {
+        match s {
+            "REQUEST_PROXIES" => ProtocolMessageHeader::RequesProxies,
+            "GOODBYE" => ProtocolMessageHeader::Goodbye,
+            "PROCESSING" => ProtocolMessageHeader::Processing,
+            "DONE" => ProtocolMessageHeader::Done,
+            "PROXY" => ProtocolMessageHeader::Proxy,
+            _ => panic!("Unknown ProtocolMessageHeader"),
+        }
+    }
+}
+
+// == for ProtocolMessageHeader
+impl PartialEq for ProtocolMessageHeader {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
     }
 }
 
 pub enum ProtocolMessageHeader {
     // ### CLIENT MESSAGES ###
     RequesProxies, // TODO: [1] here
-    Goodbye, // process stopped normally (client received ^C), kthxbye
+    Goodbye,       // process stopped normally (client received ^C), kthxbye
     // ### SERVER MESSAGES ###
     Processing, // ok, request received, processing request...
-    Done, // done processing request, here are your proxies sir
-    Proxy, // send a proxy to the client
+    Done,       // done processing request, here are your proxies sir
+    Proxy,      // send a proxy to the client
 }
 
 // TODO: eventually this will be replaced by a properly optimized protocol
@@ -46,13 +55,18 @@ pub enum ProtocolMessageHeader {
 //     out.send(msg).unwrap();
 // }
 
-pub fn read_message(msg: Message) -> Result<ProtocolMessage, &'static str> {
-    if msg.to_string() == format!("{} ", ProtocolMessageHeader::RequesProxies) {
-        println!("Received correct request for proxies");
-        return Ok(ProtocolMessage {
-            header: ProtocolMessageHeader::RequesProxies,
-            body: String::new(),
-        });
+pub fn read_message(msg: &Message) -> Result<ProtocolMessage, &'static str> {
+    let args = msg.to_text().unwrap().split(" ").collect::<Vec<&str>>();
+
+    match ProtocolMessageHeader::from(args[0]) {
+        ProtocolMessageHeader::RequesProxies => {
+            println!("Received correct request for proxies");
+            Ok((ProtocolMessageHeader::RequesProxies, String::from("")))
+        },
+        ProtocolMessageHeader::Proxy => {
+            println!("Received proxy: {}", args[1]);
+            Ok((ProtocolMessageHeader::Proxy, String::from(args[1])))
+        },
+        _ => Err("Unable to decode message (Not yet implemented)"),
     }
-    Err("Unable to decode message (Not yet implemented)")
 }

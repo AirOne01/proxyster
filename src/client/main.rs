@@ -8,7 +8,7 @@ fn main() {
     let matches = cli();
 
     match matches.subcommand() {
-        Some(("find", sub)) => {
+        Some(("find", _sub)) => {
             scraper().unwrap();
         }
         _ => {}

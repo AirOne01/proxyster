@@ -1,6 +1,7 @@
 use futures::future::select;
 use futures::{channel::mpsc::unbounded, pin_mut};
-use futures::{StreamExt, SinkExt};
+use futures::{SinkExt, StreamExt};
+use lib::protocol::{read_message, ProtocolMessageHeader};
 use tokio::io::AsyncWriteExt;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
@@ -17,14 +18,25 @@ pub async fn scraper() -> Result<()> {
     let (mut ws_stream, _) = connect_async(url).await?;
     println!("Handshake completed");
 
-    ws_stream.send(Message::Text("REQUEST_PROXIES ".to_string())).await?;
+    ws_stream
+        .send(Message::Text("REQUEST_PROXIES ".to_string()))
+        .await?;
 
-    let (write, read) = ws_stream.split();
+    let (outgoing, incoming) = ws_stream.split();
 
-    let stdin_to_ws = stdin_rx.map(Ok).forward(write);
-    let ws_to_stdout = read.for_each(|msg| async {
+    let stdin_to_ws = stdin_rx.map(Ok).forward(outgoing);
+    let ws_to_stdout = incoming.for_each(|msg| async {
         if let Ok(data) = msg {
-            tokio::io::stdout().write_all(&(data.into_data())).await.unwrap();
+            if let Ok((msg, body)) = read_message(&data) {
+                if msg == ProtocolMessageHeader::Proxy {
+                    println!("Received message: {}", body);
+                };
+            }
+
+            tokio::io::stdout()
+                .write_all(&(data.into_data()))
+                .await
+                .unwrap();
         };
     });
 
