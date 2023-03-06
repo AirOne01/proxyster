@@ -13,7 +13,7 @@ impl ProtocolMessageHeader {
             ProtocolMessageHeader::Goodbye => "GOODBYE",
             ProtocolMessageHeader::Processing => "PROCESSING",
             ProtocolMessageHeader::Done => "DONE",
-            ProtocolMessageHeader::Proxy => "PROXY",
+            ProtocolMessageHeader::Proxies => "PROXIES",
         }
     }
 }
@@ -26,8 +26,10 @@ impl From<&str> for ProtocolMessageHeader {
             "GOODBYE" => ProtocolMessageHeader::Goodbye,
             "PROCESSING" => ProtocolMessageHeader::Processing,
             "DONE" => ProtocolMessageHeader::Done,
-            "PROXY" => ProtocolMessageHeader::Proxy,
-            _ => panic!("Unknown ProtocolMessageHeader"),
+            "PROXIES" => ProtocolMessageHeader::Proxies,
+            _ => {
+                panic!("Unknown ProtocolMessageHeader, header was this: {}", s)
+            },
         }
     }
 }
@@ -46,7 +48,7 @@ pub enum ProtocolMessageHeader {
     // ### SERVER MESSAGES ###
     Processing, // ok, request received, processing request...
     Done,       // done processing request, here are your proxies sir
-    Proxy,      // send a proxy to the client
+    Proxies,      // send a proxy to the client
 }
 
 // TODO: eventually this will be replaced by a properly optimized protocol
@@ -60,12 +62,10 @@ pub fn read_message(msg: &Message) -> Result<ProtocolMessage, &'static str> {
 
     match ProtocolMessageHeader::from(args[0]) {
         ProtocolMessageHeader::RequesProxies => {
-            println!("Received correct request for proxies");
             Ok((ProtocolMessageHeader::RequesProxies, String::from("")))
         },
-        ProtocolMessageHeader::Proxy => {
-            println!("Received proxy: {}", args[1]);
-            Ok((ProtocolMessageHeader::Proxy, String::from(args[1])))
+        ProtocolMessageHeader::Proxies => {
+            Ok((ProtocolMessageHeader::Proxies, String::from(args[1])))
         },
         _ => Err("Unable to decode message (Not yet implemented)"),
     }

@@ -2,7 +2,7 @@ use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
     pin_mut,
     stream::StreamExt,
-    SinkExt, TryStreamExt,
+    TryStreamExt,
 };
 use lib::{
     fetch::fetch,
@@ -14,7 +14,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
+use tokio_tungstenite::{accept_async, tungstenite::Message};
 
 use crate::cli::cli;
 
@@ -23,8 +23,13 @@ mod cli;
 type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
-async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
-    let mut ws_stream = accept_async(raw_stream)
+async fn handle_connection(
+    peer_map: PeerMap,
+    raw_stream: TcpStream,
+    addr: SocketAddr,
+    proxies: Vec<String>,
+) {
+    let ws_stream = accept_async(raw_stream)
         .await
         .expect("should be able to accept TCP stream");
 
@@ -43,14 +48,13 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
     let (outgoing, incoming) = ws_stream.split();
 
     let broadcast_incoming = incoming.try_for_each(|msg: Message| {
-        if let Ok((msg2, _body)) = read_message(&msg) {
-            match msg2 {
+        let mut msg_to_send: Message = Message::Text(String::from(""));
+
+        if let Ok((msg_header, _body)) = read_message(&msg) {
+            match msg_header {
                 ProtocolMessageHeader::RequesProxies => {
-                    async fn hopefully_future(ws_stream: &mut WebSocketStream<TcpStream>) {
-                        ws_stream.send(Message::Text("REQUEST_PROXIES ".to_string()));
-                    }
-                    tokio::spawn(hopefully_future(&mut ws_stream));
-                    // tokio::spawn(send_proxies(ws_stream));
+                    let proxies_as_string = proxies.join("\n");
+                    msg_to_send = Message::Text(format!("PROXIES {}", proxies_as_string));
                 }
                 _ => {}
             }
@@ -59,13 +63,12 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
         let peers = peer_map.lock().unwrap();
 
         let broadcast_recipients = peers
-            .iter()
-            .filter(|(peer_addr, _)| peer_addr != &&addr)
-            .map(|(_, ws_sink)| ws_sink);
+            .iter();
+            // .filter(|(peer_addr, _)| peer_addr != &&addr)
 
-        for recp in broadcast_recipients {
-            println!("sending to {:?}", recp);
-            recp.unbounded_send(msg.clone()).unwrap();
+        for (sock, recp) in broadcast_recipients {
+            println!("Sending to {}:{}", sock.ip(), sock.port());
+            recp.unbounded_send(msg_to_send.clone()).unwrap();
         }
 
         futures::future::ok(())
@@ -76,10 +79,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
     pin_mut!(broadcast_incoming, receive_from_others);
 
     futures::future::select(broadcast_incoming, receive_from_others).await;
-
-    // tokio::spawn(|| -> impl std::future::Future<Output = ()> {
-    //     futures::future::select(broadcast_incoming, receive_from_others).await;
-    // });
+    
 
     println!("{} disconnected", addr);
     peer_map.lock().unwrap().remove(&addr);
@@ -93,25 +93,18 @@ async fn main() -> Result<(), std::io::Error> {
 
     let listener = TcpListener::bind("127.0.0.1:54345").await?;
 
+    // let proxies = thread::spawn(|| async { fetch().expect("TODO: HANDLE THIS ERROR") }).join().unwrap().await;
+    let proxies = fetch().await.unwrap();
+
     while let Ok((stream, addr)) = listener.accept().await {
-        tokio::spawn(handle_connection(state.clone(), stream, addr)).await?;
+        tokio::spawn(handle_connection(
+            state.clone(),
+            stream,
+            addr,
+            proxies.clone(),
+        ))
+        .await?;
     }
 
-    Ok(())
-}
-
-async fn send_proxies(ws_stream: WebSocketStream<TcpStream>) -> Result<(), std::io::Error> {
-    let mut stream = ws_stream;
-    let msg = Message::Text(String::from("PROCESSING "));
-    stream
-        .send(msg)
-        .await
-        .expect("should be able to send message");
-    let res = fetch().expect("TODO: HANDLE THIS ERROR");
-    let msg_to_send = Message::Text(res.join("\n"));
-    stream
-        .send(msg_to_send)
-        .await
-        .expect("should be able to send message");
     Ok(())
 }

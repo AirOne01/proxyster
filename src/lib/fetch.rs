@@ -1,13 +1,12 @@
 use regex::Regex;
 use scraper::{Html, Selector};
 
-use crate::{filters::filter_all, config::read_config, provider::ProviderSource};
+use crate::{config::read_config, filters::filter_all, provider::ProviderSource};
 
 // Type alias
 type ExpandedResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 // sync proxy fetching
-#[tokio::main]
 pub async fn fetch() -> ExpandedResult<Vec<String>> {
     let providers = Vec::from(read_config().providers);
     let client = reqwest::Client::new();
@@ -16,10 +15,10 @@ pub async fn fetch() -> ExpandedResult<Vec<String>> {
     for provider in providers {
         // fetch sources from provider.sources (TOML)
         let sources = provider.sources;
+        let client2 = client.clone();
         // get proxies from sources
-        let proxies = get_proxies(&client, sources).await?;
-        let mut filtered_proxies = filter_all(proxies);
-        final_proxy_list.append(&mut filtered_proxies);
+        final_proxy_list.extend(filter_all(get_proxies(client2, sources).await?));
+        // let proxies = get_proxies(client, sources).await?;
     }
 
     Ok(final_proxy_list.clone())
@@ -28,7 +27,7 @@ pub async fn fetch() -> ExpandedResult<Vec<String>> {
 // get the url and selector from the provider, and fetch a new url from those.
 // do this recursively until we get a provider with no sources, and then return the selector content
 async fn get_proxies(
-    client: &reqwest::Client,
+    client: reqwest::Client,
     sources: Vec<ProviderSource>,
 ) -> ExpandedResult<Vec<String>> {
     let mut proxies = Vec::new();
@@ -40,11 +39,17 @@ async fn get_proxies(
     for i in 0..sources.len() {
         if i != sources.len() - 1 {
             // if this is not last element, get the selector's href
-            url = get_html_href(client, url.as_str(), selector.as_str(), regex.clone()).await?;
+            url = get_html_href(
+                client.clone(),
+                url.as_str(),
+                selector.as_str(),
+                regex.clone(),
+            )
+            .await?;
             selector = sources[i + 1].selector.clone();
             regex = sources[i + 1].regex.clone();
         } else {
-            proxies.push(get_html_text(client, url.as_str(), selector.as_str()).await?);
+            proxies.push(get_html_text(client.clone(), url.as_str(), selector.as_str()).await?);
         }
     }
 
@@ -53,7 +58,7 @@ async fn get_proxies(
 
 // from an url and a selector, returns the href of first element of the selector
 async fn get_html_href(
-    client: &reqwest::Client,
+    client: reqwest::Client,
     url: &str,
     selector: &str,
     regex: Option<String>,
@@ -84,7 +89,7 @@ async fn get_html_href(
 
 // from an url and a selector, returns the html text of the selector
 async fn get_html_text(
-    client: &reqwest::Client,
+    client: reqwest::Client,
     url: &str,
     selector: &str,
 ) -> ExpandedResult<String> {

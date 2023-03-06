@@ -25,18 +25,16 @@ pub async fn scraper() -> Result<()> {
     let (outgoing, incoming) = ws_stream.split();
 
     let stdin_to_ws = stdin_rx.map(Ok).forward(outgoing);
-    let ws_to_stdout = incoming.for_each(|msg| async {
-        if let Ok(data) = msg {
-            if let Ok((msg, body)) = read_message(&data) {
-                if msg == ProtocolMessageHeader::Proxy {
-                    println!("Received message: {}", body);
-                };
+    let ws_to_stdout = incoming.for_each(|possible_msg| async {
+        if let Ok(msg) = possible_msg {
+            if let Ok((msg_header, body)) = read_message(&msg) {
+                match msg_header {
+                    ProtocolMessageHeader::Proxies => {
+                        println!("{}", body);
+                    },
+                    _ => {}
+                }
             }
-
-            tokio::io::stdout()
-                .write_all(&(data.into_data()))
-                .await
-                .unwrap();
         };
     });
 
