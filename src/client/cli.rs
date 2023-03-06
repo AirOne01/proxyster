@@ -1,4 +1,4 @@
-use clap::{Command, Arg, ArgAction, ValueHint, builder, value_parser};
+use clap::{builder, value_parser, Arg, ArgAction, Command, ValueHint};
 
 fn clap_command() -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
@@ -8,12 +8,12 @@ fn clap_command() -> Command {
         .subcommand_required(true)
         .arg_required_else_help(true)
         .disable_help_subcommand(true)
-        .subcommand(
+        .subcommands([
             Command::new("find")
                 .visible_alias("f")
                 .about("Scrape proxies from the internet")
                 .after_help("If no output file is specified, the proxies will be output to `./proxies.txt`.\nThe default amount of proxies is 100.")
-                .arg(
+                .args([
                     Arg::new("output")
                         .long("out")
                         .short('o')
@@ -23,18 +23,14 @@ fn clap_command() -> Command {
                         .value_hint(ValueHint::FilePath)
                         .value_parser(builder::PathBufValueParser::new())
                         .action(ArgAction::Set)
-                        .conflicts_with("stdout")
-                )
-                .arg(
+                        .conflicts_with("stdout"),
                     Arg::new("stdout")
                         .long("stdout")
                         .short('s')
                         .help("Dump proxies to standard output")
                         .num_args(0)
                         .action(ArgAction::SetTrue)
-                        .conflicts_with("output")
-                )
-                .arg(
+                        .conflicts_with("output"),
                     Arg::new("amount")
                         .long("amount")
                         .short('n')
@@ -43,9 +39,7 @@ fn clap_command() -> Command {
                         .value_name("AMOUNT")
                         .value_hint(ValueHint::Other)
                         .value_parser(value_parser!(u32).range(1..))
-                        .conflicts_with_all(&["minmax", "min", "max"])
-                )
-                .arg(
+                        .conflicts_with_all(&["minmax", "min", "max"]),
                     Arg::new("minmax")
                         .long("minmax")
                         .short('m')
@@ -54,9 +48,7 @@ fn clap_command() -> Command {
                         .value_names(&["MIN", "MAX"])
                         .value_hint(ValueHint::Other)
                         .value_parser(value_parser!(u32).range(1..))
-                        .conflicts_with_all(&["amount", "min", "max"])
-                )
-                .arg(
+                        .conflicts_with_all(&["amount", "min", "max"]),
                     Arg::new("min")
                         .long("min")
                         .help("Minimum amount of proxies to find")
@@ -64,9 +56,7 @@ fn clap_command() -> Command {
                         .value_name("MIN")
                         .value_hint(ValueHint::Other)
                         .value_parser(value_parser!(u32).range(1..))
-                        .conflicts_with_all(&["amount", "minmax", "max"])
-                )
-                .arg(
+                        .conflicts_with_all(&["amount", "minmax", "max"]),
                     Arg::new("max")
                         .long("max")
                         .help("Maximum amount of proxies to find")
@@ -74,9 +64,12 @@ fn clap_command() -> Command {
                         .value_name("MAX")
                         .value_hint(ValueHint::Other)
                         .value_parser(value_parser!(u32).range(1..))
-                        .conflicts_with_all(&["amount", "minmax", "min"])
-                )
-        )
+                        .conflicts_with_all(&["amount", "minmax", "min"]),
+                ]),
+            Command::new("read")
+                .visible_alias("r")
+                .about("Read proxies from previously saved file")
+        ])
         .arg(
             Arg::new("debug")
                 .long("debug")
