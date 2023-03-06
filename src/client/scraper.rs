@@ -1,10 +1,12 @@
+use dirs::config_dir;
 use futures::future::select;
 use futures::{channel::mpsc::unbounded, pin_mut};
 use futures::{SinkExt, StreamExt};
 use lib::protocol::{read_message, ProtocolMessageHeader};
-use tokio::io::AsyncWriteExt;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
+
+use crate::fs::write_proxies;
 
 // Type alias
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -30,8 +32,10 @@ pub async fn scraper() -> Result<()> {
             if let Ok((msg_header, body)) = read_message(&msg) {
                 match msg_header {
                     ProtocolMessageHeader::Proxies => {
-                        println!("{}", body);
-                    },
+                        // println!("{}", body);
+                        write_proxies(body).expect("Failed to write proxies to file");
+                        println!("Proxies written to {}", config_dir().unwrap().join("proxyster").join("proxies.txt").to_string_lossy());
+                    }
                     _ => {}
                 }
             }

@@ -3,6 +3,7 @@ use crate::scraper::scraper;
 
 mod cli;
 mod scraper;
+mod fs;
 
 fn main() {
     let matches = cli();
