@@ -7,7 +7,7 @@ struct FilterAction {
 }
 
 // Filters given list of raw proxies as Vec.
-pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
+pub fn filter_all(proxies: Vec<String>) -> Vec<String> {
     let mut filtered_proxies: Vec<String> = Vec::new();
     let mut splitted_proxies: Vec<String> = Vec::new();
 
@@ -18,7 +18,8 @@ pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
             .split(|c| c == '\r' || c == '\n')
             .collect::<Vec<&str>>();
         for proxy in to_push {
-            if !proxy.is_empty() || proxy != "" { // failsafe
+            if !proxy.is_empty() || proxy != "" {
+                // failsafe
                 splitted_proxies.push(proxy.to_string())
             }
         }
@@ -29,18 +30,8 @@ pub fn filter_all(proxies: Vec<String>, debug: bool) -> Vec<String> {
 
         if filtered.accepted {
             filtered_proxies.push(proxy.clone());
-            if debug {
-                println!("Accepted: {}", proxy);
-            }
-        } else {
-            if let Some(new_value) = filtered.new_value {
-                filtered_proxies.push(new_value.clone());
-                if debug {
-                    println!("Morphed: {}", new_value)
-                };
-            } else if debug {
-                println!("Rejected: {}", proxy);
-            }
+        } else if let Some(new_value) = filtered.new_value {
+            filtered_proxies.push(new_value.clone());
         }
     }
     return filtered_proxies;

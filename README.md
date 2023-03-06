@@ -31,3 +31,7 @@ This is currently still very WIP.
 </table>
 
 </div>
+
+## Port
+
+The port default chosen for the daemon is `54345`.

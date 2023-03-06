@@ -89,5 +89,5 @@ fn clap_command() -> Command {
 }
 
 pub fn cli() -> clap::ArgMatches {
-    return clap_command().get_matches();
+    clap_command().get_matches()
 }
