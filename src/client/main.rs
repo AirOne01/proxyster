@@ -1,21 +1,41 @@
+use clap::ArgMatches;
+use lib::log::make_logger;
+use slog::error;
+
 use crate::cli::cli;
-use crate::scraper::scraper;
 use crate::fs::read_proxies;
+use crate::scraper::scraper;
 
 mod cli;
-mod scraper;
 mod fs;
+mod scraper;
 
 fn main() {
+    let logger = make_logger();
+
     let matches = cli();
 
-    match matches.subcommand() {
-        Some(("find", _sub)) => {
-            scraper().unwrap();
-        },
-        Some(("read", _sub)) => {
-            println!("{}", read_proxies().expect("could not read proxies file"));
+    match subcommand(matches) {
+        Ok(_) => {}
+        Err(e) => {
+            error!(logger, "{}", e);
         }
-        _ => {}
     }
+}
+
+fn subcommand(matches: ArgMatches) -> Result<(), &'static str> {
+    match matches.subcommand() {
+        Some(("find", _)) => scraper(),
+        Some(("read", _)) => match read_proxies() {
+            Ok(_) => Ok(()),
+            Err(_) => {
+                return Err("Could not read proxies");
+            }
+        },
+        _ => {
+            return Err("No subcommand was used");
+        }
+    }?;
+
+    Ok(())
 }

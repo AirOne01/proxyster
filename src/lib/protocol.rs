@@ -58,7 +58,10 @@ pub enum ProtocolMessageHeader {
 // }
 
 pub fn read_message(msg: &Message) -> Result<ProtocolMessage, &'static str> {
-    let args = msg.to_text().unwrap().split(" ").collect::<Vec<&str>>();
+    let args = match msg.to_text() {
+        Ok(text) => text.split(" ").collect::<Vec<&str>>(),
+        Err(_) => return Err("Unable to decode WS message (Not a text message)"),
+    };
 
     match ProtocolMessageHeader::from(args[0]) {
         ProtocolMessageHeader::RequesProxies => {
