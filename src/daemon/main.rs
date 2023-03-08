@@ -26,6 +26,7 @@ type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
 async fn handle_connection(
+    logger: Logger,
     peer_map: PeerMap,
     raw_stream: TcpStream,
     addr: SocketAddr,
@@ -53,13 +54,7 @@ async fn handle_connection(
         let mut msg_to_send: Message = Message::Text(String::from(""));
 
         if let Ok((msg_header, _body)) = read_message(&msg) {
-            match msg_header {
-                ProtocolMessageHeader::RequesProxies => {
-                    let proxies_as_string = proxies.join("\n");
-                    msg_to_send = Message::Text(format!("PROXIES {}", proxies_as_string));
-                }
-                _ => {}
-            }
+            send_proxies(msg_header, &proxies, &mut msg_to_send);
         }
 
         let peers = peer_map.lock().unwrap();
@@ -81,7 +76,8 @@ async fn handle_connection(
 
     futures::future::select(broadcast_incoming, receive_from_others).await;
 
-    println!("{} disconnected", addr);
+    info!(logger, "{} disconnected", addr);
+
     match peer_map.lock() {
         Ok(mut peers) => {
             peers.remove(&addr);
@@ -92,6 +88,16 @@ async fn handle_connection(
     }
 
     Ok(())
+}
+
+fn send_proxies(msg_header: ProtocolMessageHeader, proxies: &Vec<String>, msg_to_send: &mut Message) {
+    match msg_header {
+        ProtocolMessageHeader::RequesProxies => {
+            let proxies_as_string = proxies.join("\n");
+            *msg_to_send = Message::Text(format!("PROXIES {}", proxies_as_string));
+        }
+        _ => {}
+    }
 }
 
 #[tokio::main]
@@ -140,6 +146,7 @@ async fn bind_address(
 
     while let Ok((stream, addr)) = listener.accept().await {
         match tokio::spawn(handle_connection(
+            logger.clone(),
             state.clone(),
             stream,
             addr,

@@ -55,14 +55,14 @@ async fn get_proxies(
                 Err(_) => return Err("Could not get url"),
             };
             selector = sources[i + 1].selector.clone();
-            regex = sources[i + 1].regex.clone();
-        } else {
-            let proxy = match get_html_text(client.clone(), url.as_str(), selector.as_str()).await {
-                Ok(html_text) => html_text,
-                Err(_) => return Err("Could not get proxy from html text"),
-            };
-            proxies.push(proxy);
+            break;
         }
+        regex = sources[i + 1].regex.clone();
+        let proxy = match get_html_text(client.clone(), url.as_str(), selector.as_str()).await {
+            Ok(html_text) => html_text,
+            Err(_) => return Err("Could not get proxy from html text"),
+        };
+        proxies.push(proxy);
     }
 
     Ok(proxies)
