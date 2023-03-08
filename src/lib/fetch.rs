@@ -57,7 +57,7 @@ async fn get_proxies(
             selector = sources[i + 1].selector.clone();
             break;
         }
-        regex = sources[i + 1].regex.clone();
+        regex = sources[i].regex.clone();
         let proxy = match get_html_text(client.clone(), url.as_str(), selector.as_str()).await {
             Ok(html_text) => html_text,
             Err(_) => return Err("Could not get proxy from html text"),

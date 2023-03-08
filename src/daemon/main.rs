@@ -36,9 +36,13 @@ async fn handle_connection(
         .await
         .expect("should be able to accept TCP stream");
 
-    println!(
+    info!(
+        logger,
         "New WS connection: {}",
-        ws_stream.get_ref().peer_addr().or(Err("Could not get peer address"))?
+        ws_stream
+            .get_ref()
+            .peer_addr()
+            .or(Err("Could not get peer address"))?
     );
 
     let (tx, rx) = unbounded::<Message>();
@@ -63,7 +67,7 @@ async fn handle_connection(
         // .filter(|(peer_addr, _)| peer_addr != &&addr)
 
         for (sock, recp) in broadcast_recipients {
-            println!("Sending to {}:{}", sock.ip(), sock.port());
+            info!(logger, "Sending to {}:{}", sock.ip(), sock.port());
             recp.unbounded_send(msg_to_send.clone()).unwrap();
         }
 
@@ -90,7 +94,11 @@ async fn handle_connection(
     Ok(())
 }
 
-fn send_proxies(msg_header: ProtocolMessageHeader, proxies: &Vec<String>, msg_to_send: &mut Message) {
+fn send_proxies(
+    msg_header: ProtocolMessageHeader,
+    proxies: &Vec<String>,
+    msg_to_send: &mut Message,
+) {
     match msg_header {
         ProtocolMessageHeader::RequesProxies => {
             let proxies_as_string = proxies.join("\n");
