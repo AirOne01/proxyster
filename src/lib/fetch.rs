@@ -29,27 +29,39 @@ pub async fn fetch() -> ExpandedResult<Vec<String>> {
 async fn get_proxies(
     client: reqwest::Client,
     sources: Vec<ProviderSource>,
-) -> ExpandedResult<Vec<String>> {
+) -> Result<Vec<String>, &'static str> {
     let mut proxies = Vec::new();
 
-    let mut url: String = sources[0].url.as_ref().unwrap().to_owned(); // only for the first one
+    // only for the first one
+    let mut url: String = match sources[0].url.as_ref() {
+        Some(url) => url.to_owned(),
+        None => return Err("Could not get url"),
+    };
     let mut selector = sources[0].selector.clone();
     let mut regex = sources[0].regex.clone();
 
     for i in 0..sources.len() {
         if i != sources.len() - 1 {
             // if this is not last element, get the selector's href
-            url = get_html_href(
+            url = match get_html_href(
                 client.clone(),
                 url.as_str(),
                 selector.as_str(),
                 regex.clone(),
             )
-            .await?;
+            .await
+            {
+                Ok(url) => url,
+                Err(_) => return Err("Could not get url"),
+            };
             selector = sources[i + 1].selector.clone();
             regex = sources[i + 1].regex.clone();
         } else {
-            proxies.push(get_html_text(client.clone(), url.as_str(), selector.as_str()).await?);
+            let proxy = match get_html_text(client.clone(), url.as_str(), selector.as_str()).await {
+                Ok(html_text) => html_text,
+                Err(_) => return Err("Could not get proxy from html text"),
+            };
+            proxies.push(proxy);
         }
     }
 
@@ -71,7 +83,11 @@ async fn get_html_href(
     for element in fragment.select(&selector) {
         if let Some(element_href) = element.value().attr("href") {
             if let Some(regex) = regex.clone() {
-                if Regex::new(&regex[..]).unwrap().is_match(element_href) {
+                let regex = match Regex::new(&regex[..]) {
+                    Ok(regex) => regex,
+                    Err(_) => return Err("Could not parse regex".into()),
+                };
+                if regex.is_match(element_href) {
                     return Ok(element_href.to_string());
                 }
                 scanned_elements_with_href = true;
@@ -96,7 +112,10 @@ async fn get_html_text(
     let res = client.get(url).send().await?;
     let body = res.text().await?;
     let fragment = Html::parse_document(&body);
-    let selector = Selector::parse(selector).unwrap();
+    let selector = match Selector::parse(selector) {
+        Ok(selector) => selector,
+        Err(_) => return Err("Could not parse selector".into()),
+    };
     let mut text = String::new();
     for element in fragment.select(&selector) {
         text.push_str(element.text().collect::<String>().as_str());

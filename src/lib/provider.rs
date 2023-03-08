@@ -24,15 +24,19 @@ impl From<toml::Value> for Provider {
     fn from(value: toml::Value) -> Self {
         let sources: Vec<ProviderSource> = value
             .get("sources")
-            .unwrap()
+            .expect("sources should be defined")
             .as_array()
             .expect("sources should be converted to an array")
             .iter()
             .map(|v| ProviderSource::from(v.clone()))
             .collect();
+        let provider_name = value
+            .get("name")
+            .expect("name should be defined")
+            .to_string();
 
         Provider {
-            name: value.get("name").unwrap().as_str().unwrap().to_owned(),
+            name: provider_name,
             sources,
         }
     }

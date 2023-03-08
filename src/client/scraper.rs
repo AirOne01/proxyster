@@ -8,21 +8,28 @@ use url::Url;
 
 use crate::fs::write_proxies;
 
-// Type alias
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
-
 #[tokio::main]
-pub async fn scraper() -> Result<()> {
-    let url = Url::parse("ws://127.0.0.1:54345")?;
+pub async fn scraper() -> Result<(), &'static str> {
+    let url = match Url::parse("ws://127.0.0.1:54345") {
+        Ok(url) => url,
+        Err(_) => return Err("Could not parse url"),
+    };
 
     let (_stdin_tx, stdin_rx) = unbounded::<Message>();
 
-    let (mut ws_stream, _) = connect_async(url).await?;
+    let mut ws_stream = match connect_async(url).await {
+        Ok((ws_stream, _)) => ws_stream,
+        Err(_) => return Err("Could not connect to server. Is it running ?"),
+    };
     println!("Handshake completed");
 
-    ws_stream
+    match ws_stream
         .send(Message::Text("REQUEST_PROXIES ".to_string()))
-        .await?;
+        .await
+    {
+        Ok(_) => {}
+        Err(_) => return Err("Could not send message to server"),
+    };
 
     let (outgoing, incoming) = ws_stream.split();
 
@@ -34,7 +41,20 @@ pub async fn scraper() -> Result<()> {
                     ProtocolMessageHeader::Proxies => {
                         // println!("{}", body);
                         write_proxies(body).expect("Failed to write proxies to file");
-                        println!("Proxies written to {}", config_dir().unwrap().join("proxyster").join("proxies.txt").to_string_lossy());
+                        match config_dir() {
+                            Some(config_dir) => {
+                                println!(
+                                    "Proxies written to {}",
+                                    config_dir
+                                        .join("proxyster")
+                                        .join("proxies.txt")
+                                        .to_string_lossy()
+                                );
+                            },
+                            None => {
+                                println!("Proxies written to proxies.txt. Could not find the output file when sending that message.");
+                            }
+                        }
                     }
                     _ => {}
                 }
