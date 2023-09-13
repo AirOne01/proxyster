@@ -1,8 +1,8 @@
-use std::fs::{read_to_string};
+use std::fs::{read_to_string, write};
 
 use serde_derive::Deserialize;
 
-use crate::{provider::Provider, dirs::vanilla_dir_exists};
+use crate::{dirs::vanilla_dir_exists, provider::Provider};
 
 /**
  The config file
@@ -28,10 +28,16 @@ pub struct Config {
 pub fn read_config() -> Config {
     let dir = vanilla_dir_exists();
     let providers_file = dir.join("providers.toml");
-    assert!(
-        providers_file.exists(),
-        "providers config file should exist"
-    );
+    match providers_file.try_exists() {
+        Ok(false) => write(providers_file.clone(), "").unwrap(),
+        Ok(true) => {}
+        Err(err) => {
+            panic!(
+                "error checking if proxyster config directory exists: {}",
+                err
+            );
+        }
+    }
     assert!(
         providers_file.is_file(),
         "providers config file path should be a file and not a directory"
