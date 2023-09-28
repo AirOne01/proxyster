@@ -1,3 +1,7 @@
+/**
+ * config.rs
+ * This file handles the reading of the config file and the providers list.
+ */
 use std::fs::{read_to_string, write};
 
 use serde_derive::Deserialize;

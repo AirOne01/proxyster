@@ -1,3 +1,8 @@
+/**
+ * filters.rs
+ * This file handles the filtering of proxies.
+ * It also morphs them (i.e. assumes a port if there is none)
+ */
 use regex::Regex;
 
 // Wether or not the filtered proxy is accepted and if not, if it is changed
@@ -13,15 +18,20 @@ pub fn filter_all(proxies: Vec<String>) -> Vec<String> {
 
     // This part removes newlines from the proxy list
     for proxy in proxies {
+        if proxy.is_empty() || proxy == "" {
+            // failsafe
+            continue;
+        }
+        if !proxy.contains("\n") && !proxy.contains("\r") {
+            splitted_proxies.push(proxy);
+            continue;
+        }
         let to_push = proxy
             .as_str()
             .split(|c| c == '\r' || c == '\n')
             .collect::<Vec<&str>>();
         for proxy in to_push {
-            if !proxy.is_empty() || proxy != "" {
-                // failsafe
-                splitted_proxies.push(proxy.to_string())
-            }
+            splitted_proxies.push(proxy.to_string())
         }
     }
 
@@ -64,10 +74,20 @@ fn filter_proxy(proxy: String) -> FilterAction {
     }
 
     if test(
+        r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$",
+        relevant_proxy.clone(),
+    ) {
+        /* simplest proxy format (no port) (ipv4) */
+        // return while assuming port
+        return FilterAction {
+            accepted: false,
+            new_value: Some(format!("{}:80", relevant_proxy.clone())),
+        };
+    } else if test(
         r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}$",
         relevant_proxy.clone(),
     ) {
-        /* simplest proxy format
+        /* simple proxy format (w/ port) (ipv4)
         xxx.xxx.xxx:xxxxx */
         return FilterAction {
             accepted: true,
@@ -77,7 +97,7 @@ fn filter_proxy(proxy: String) -> FilterAction {
         r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}@SOCKS[4,5]$",
         relevant_proxy.clone(),
     ) {
-        /* socks proxy format
+        /* socks proxy format (w/ port) (ipv4)
         xxx.xxx.xxx:xxxxx@SOCKSx */
         return FilterAction {
             accepted: false,
